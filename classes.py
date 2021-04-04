@@ -1,7 +1,7 @@
-# This is a sample Python script.
-
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+
+import pandas as pd
 
 
 def validate_variable(var, var_check):
@@ -72,6 +72,10 @@ class Simulation:
     def get_num_cars(self):
         return self.num_cars
 
+    @property
+    def get_current_time(self):
+        return self.current_time
+
     def set_streets(self, streets):
         # todo: validate parameter is array of streets
         self.streets = streets
@@ -110,6 +114,7 @@ class Simulation:
 
             # Add the new intersection to the list, or add new street to existing intersection
             # Check if current intersection is already in the list
+            # todo: rewrite code to look/add new intersections in both line[0] and line[1]
             i = find(intersections, line[1])
             if i > -1:
                 # Check if current street is already in the intersection's list
@@ -120,13 +125,16 @@ class Simulation:
                 intersections.append(Intersection(line[1], line[2]))
 
         # Store streets and intersections in the simulation
+        # todo: add check to see if num streets found = self.num_streets
         sim.set_streets(streets)
+
+        # todo: add check to see if number of intersections found = self.num_intersections
         sim.set_intersections(intersections)
 
         # Create the cars
         cars = []
         for y in range(0, sim.get_num_cars):
-            line = f.readline().split(' ')
+            line = f.readline().replace('\n', '').split(' ')
             cars.append(Car(line[0], line[1:]))
 
         # store cars in the simulation's car array
@@ -148,13 +156,33 @@ class Simulation:
             # The next line tells us how many lights we're looking at
             num_lights = int(f.readline())
 
-            # need to be able to reference the streets based on the intersection id
+            schedules = []
 
+            # need to be able to reference the streets based on the intersection id
             for y in range(num_lights):
+                schedule = {}
                 # Grab the line
                 line = f.readline().split(' ')
 
-    def create_submission(self):
+                # todo: add documentation describing what line parts are what
+                schedule['street'] = line[0]
+                schedule['timer'] = int(line[1])
+                schedules.append(schedule)
+
+            # Give the schedule to the appropriate intersection
+            # todo: add try-except statement in case unable to find intersection for whatever reason
+            self.intersections[find(self.intersections, intersection)].set_schedule(pd.DataFrame(schedules))
+
+        #  Finally, cut all unnecessary streets and intersections, where no car will interact with them
+        self.cut_streets()
+
+    def create_submission(self, file=None):
+        # todo: implement a version for creating a flat submission file for a new input file
+        """
+
+        :param file: If none, create new file.
+        :return:
+        """
         pass
 
     def score(self, car):
@@ -163,20 +191,54 @@ class Simulation:
             self.score += self.points + (self.duration - self.current_time)
         # Otherwise, no score is added
 
-        # Remove car from the simulation
+        # todo: Remove car from the simulation
+
+        # todo: record car stats
         pass
 
     def tick(self):
-        # Check traffic light schedules
+        # Update traffic light schedules
+        for i in self.intersections:
+            pass
 
-        # Move cars
+        # Move cars/count delay
+        for i in self.streets:
+            pass
 
         # Check if car reached its destination
         pass
 
-    # todo: find and cut unused streets to reduce number of features in optimization
+    # todo: find and cut unused streets/intersections to reduce number of features in optimization
     def cut_streets(self):
-        pass
+        # Create list of all streets and intersections cars touch
+        all_streets = pd.DataFrame()
+
+        # todo: optimize
+        for i in self.cars:
+            all_street = pd.DataFrame()
+            all_street['streets'] = i.get_path
+
+            # grab the intersection ids
+            all_street['intersections'] = [self.streets[find(self.streets, j)].get_intersection for j in i.get_path]
+            all_streets = all_streets.append(all_street)
+
+        # Convert list into pandas series of unique streets
+        unique_streets = all_streets['streets'].unique()
+        unique_intersections = all_streets['intersections'].unique()
+
+        # Delete all streets not in unique_streets
+        # Gather list of streets not in unique_streets
+        # print(unique_streets)
+        # print(self.streets)
+
+        [self.streets.remove(street) for street in self.streets if street.get_id not in unique_streets]
+        # print(self.streets)
+
+        # Delete all intersections not in unique_intersections
+        # Gather list of intersections not in unique_intersections
+        # print(self.intersections)
+        [self.intersections.remove(it) for it in self.intersections if it.get_id not in unique_intersections]
+        # print(self.intersections)
 
     # todo: implement optimization method
 
@@ -200,7 +262,6 @@ class Car:
         self.path = path  # list of street ids
         self.current_street = path[0]
         self.path_index = 0
-        self.destination = path[len(path) - 1]
         # self.position = None
         self.car_delay = 0
 
@@ -217,7 +278,11 @@ class Car:
 
     @property
     def get_destination(self):
-        return self.destination
+        return self.path[len(self.path) - 1]
+
+    @property
+    def get_path(self):
+        return self.path
 
     @property
     def get_id(self):
@@ -239,17 +304,25 @@ class TrafficLight:
 
 
 class Intersection:
+    RED = 0
+    GREEN = 1
 
     def __init__(self, name, street):
         self.id = name
         self.streets = [street]  # List of street ids of streets that meet at this intersection
-        self.schedule = 0
+        self.schedule = pd.DataFrame()
         # self.cycle_length
         self.cycle_position = 0
         self.delay = 0
 
     def set_schedule(self, schedule):
         self.schedule = schedule
+
+        # Calculate the 'hidden_timer' column for each row
+        self.schedule['hidden_timer'] = self.schedule['timer'].cumsum()
+        self.schedule['Light'] = self.RED
+
+        # print(self.schedule)
 
     def add_street(self, street_id):
         self.streets.append(street_id)
@@ -264,6 +337,10 @@ class Intersection:
     @property
     def get_streets(self):
         return self.streets
+
+    @property
+    def get_schedule_position(self):
+        return self.cycle_position
 
     def __repr__(self):
         return self.id
@@ -298,6 +375,10 @@ class Street:
     @property
     def get_id(self):
         return self.id
+
+    @property
+    def get_intersection(self):
+        return self.end_intersection_id
 
     def __repr__(self):
         return self.id

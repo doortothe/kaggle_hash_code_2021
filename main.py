@@ -5,4 +5,5 @@
 from classes import Simulation
 
 
-Simulation.read_input('test_sim.txt')
+sim = Simulation.read_input('test_sim.txt')
+sim.read_submission('test_sched.txt')
