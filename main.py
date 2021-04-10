@@ -10,5 +10,12 @@ sim.read_submission('test_sched.txt')
 
 # Run simulation
 sim.run_simulation()
-# Expected outcome: there should only be 1 intersections: 1
-# Intersections 0 and 2 are always green
+"""
+Expected outcome:
+tick 0: rue-d-athenes is green. rue-d-amsterdam is red
+tick 1: rue-d-athenes is green. rue-d-amsterdam is red
+tick 2: rue-d-athenes is red. rue-d-amsterdam is green
+tick 3: rue-d-athenes is green. rue-d-amsterdam is red
+tick 4: rue-d-athenes is green. rue-d-amsterdam is red
+tick 5: rue-d-athenes is red. rue-d-amsterdam is green
+"""

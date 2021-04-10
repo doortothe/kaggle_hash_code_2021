@@ -172,18 +172,19 @@ class Simulation:
                 line = f.readline().split(' ')
 
                 # todo: add documentation describing what line parts are what
-                schedule['street'] = line[0]
+                # schedule['street'] = line[0]
                 # todo: add timer variable constraints (1 <= timer <= duration)
-                schedule['timer'] = int(line[1])
-                schedules.append(schedule)
+                for i in range(int(line[1])):
+                    schedule['street'] = line[0]
+                    schedules.append(schedule)
 
             # Give the schedule to the appropriate intersection
             # todo: add try-except statement in case unable to find intersection for whatever reason
             self.intersections[find(self.intersections, intersection)].set_schedule(pd.DataFrame(schedules))
-            #print(intersection)
+            # print(intersection)
 
         #  Finally, cut all unnecessary streets and intersections, where no car will interact with them
-        self.cut_streets()
+        self.streets, self.intersections = self.cut_streets(self.cars, self.streets, self.intersections)
 
         # for i in self.intersections:
         #     print("id: " + str(i.id))
@@ -204,17 +205,18 @@ class Simulation:
         """
         pass
 
-    def cut_streets(self):
+    @classmethod
+    def cut_streets(cls, cars, streets, intersections):
         # Create list of all streets and intersections cars touch
         all_streets = pd.DataFrame()
 
         # todo: optimize
-        for i in self.cars:
+        for i in cars:
             all_street = pd.DataFrame()
             all_street['streets'] = i.get_path
 
             # grab the intersection ids
-            all_street['intersections'] = [self.streets[find(self.streets, j)].get_intersection for j in i.get_path]
+            all_street['intersections'] = [streets[find(streets, j)].get_intersection for j in i.get_path]
             all_streets = all_streets.append(all_street)
 
         # Convert list into pandas series of unique streets
@@ -223,27 +225,23 @@ class Simulation:
 
         # Delete all streets not in unique_streets
         # Gather list of streets not in unique_streets
-        # print(unique_streets)
-        # print(self.streets)
-        self.streets = [street for street in self.streets if street.get_id in unique_streets]
-        # print(self.streets)
+        streets = [street for street in streets if street.get_id in unique_streets]
 
         # Delete all intersections not in unique_intersections
         # Gather list of intersections not in unique_intersections
-        # print(unique_intersections)
-        # print(self.intersections)
-        self.intersections = [it for it in self.intersections if str(it.get_id) in unique_intersections]
-        # print(self.intersections)
+        intersections = [it for it in intersections if str(it.get_id) in unique_intersections]
+
+        return streets, intersections
 
     def run_simulation(self):
-
-        self.optimize_lights()
+        # Remove lights that are always green/red
+        self.intersections, self.streets = self.optimize_lights(self.intersections, self.streets)
 
         # Simulation loop
         for self.current_time in range(self.duration):
             # todo: implement in-simulation print/record statements.
             self.tick
-
+            self.print_lights(self.current_time, self.intersections, self.streets)
             # Check if cars reached their destinations
 
             # Check statistics
@@ -252,13 +250,14 @@ class Simulation:
         # Update traffic light schedules
         for light in self.intersections:
             # Check which light should be on
-            pass
+            self.streets = light.intersection_tick(self.streets)
+            # Am i passing the actual variables or just a copy?
 
         # Move cars/count delay
         for i in self.streets:
             pass
 
-        pass
+        self.current_time += 1
 
     def score(self, car):
         # calculate score based on car parameters
@@ -278,32 +277,40 @@ class Simulation:
         # todo: Remove car from the simulation
         self.cars.remove(car)
 
-    def optimize_lights(self):
+    @classmethod
+    def optimize_lights(cls, intersections, streets):
         """
         run_simulation helper function
         :return:
         """
         # Find lights that are always set to on/off and mark as such to optimize later ticks
         remove_list = []
-        for i in self.intersections:
+        for i in intersections:
             # A light is always on if only one light is mentioned in a schedule
             if i.get_schedule is None:
-                # How do I update both the intersection and the street?
-                print("Removing intersection " + str(i.get_id) + " because its always red.")
+                # print("Removing intersection " + str(i.get_id) + " because its always red.")
                 remove_list.append(i.get_id)
 
             # A light is always off if the intersection is not listed in the schedule
-            elif i.get_schedule.shape[0] == 1:
+            elif i.get_schedule['street'].unique().shape[0] == 1:
                 # Street to update
-                self.streets[find(self.streets, i.get_schedule['street'][0])].flip_state()
-                print("Removing intersection " + str(i.get_id) + " because its always green.")
+                streets[find(streets, i.get_schedule['street'][0])].flip_state()
+                # print("Removing intersection " + str(i.get_id) + " because its always green.")
 
                 # Remove light from list of intersections to check each tick
                 remove_list.append(i.get_id)
         # Remove intersections scheduled for disposal
-        self.intersections = [r for r in self.intersections if r.get_id not in remove_list]
+        intersections = [r for r in intersections if r.get_id not in remove_list]
 
-    # todo: implement optimization method/class
+        return intersections, streets
+
+    @classmethod
+    def print_lights(cls, tick, intersections, streets):
+        print("tick: " + str(tick))
+        for i in intersections:
+            print("\tintersection: " + str(i.get_id))
+            for s in i.get_streets:
+                print("\t\t" + s + ": " + streets[find(streets, s)].get_state)
 
     # todo: implement method to find statistics. Such as:
     """
@@ -358,15 +365,6 @@ class Car:
     # todo: implement ability to track delays as feature to reduce in optimization
 
 
-class TrafficLight:
-    RED = 0
-    GREEN = 1
-
-    def __init__(self, street):
-        self.state = self.RED
-        self.street_id = street
-
-
 class Intersection:
     RED = 0
     GREEN = 1
@@ -376,10 +374,9 @@ class Intersection:
         self.streets = [street]  # List of street ids of streets that meet at this intersection
 
         # Schedule variables
-        self.light = self.RED
         self.always_on = False
         self.always_off = False
-        self.cycle_position = 0
+        self.cycle_position = -1
         self.schedule = None
 
         # Statistic variables
@@ -387,9 +384,6 @@ class Intersection:
 
     def set_schedule(self, schedule):
         self.schedule = schedule
-
-        # Calculate the 'hidden_timer' as a cumulative sum
-        self.schedule['hidden_timer'] = self.schedule['timer'].cumsum()
 
         # print(self.schedule)
 
@@ -434,13 +428,28 @@ class Intersection:
         self.always_off = True
         # light is off by default, so no need to change it
 
+    def intersection_tick(self, streets):
+        previous_position = self.schedule[self.cycle_position]
+        # increment current cycle position
+        if self.cycle_position == len(self.schedule):
+            # Reset the timer to 1 if it reached the end
+            self.cycle_position = 0
+        else:
+            self.cycle_position += 1
+
+        # Check if lights need to change
+        if previous_position != self.schedule[self.cycle_position]:
+            # Turn off previous position and turn on current position
+            streets[find(streets, previous_position)].flip_state()
+            streets[find(streets, self.schedule[self.cycle_position])].flip_state()
+
     def __repr__(self):
         return str(self.id)
 
 
 class Street:
-    RED = 0
-    GREEN = 1
+    RED = "red"
+    GREEN = "green"
 
     def __init__(self, name, start_intersection_id, end_intersection_id, length):
         self.id = name
