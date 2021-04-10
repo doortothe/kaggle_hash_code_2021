@@ -2,6 +2,7 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 
 import pandas as pd
+import numpy as np
 
 
 def validate_variable(var, var_check):
@@ -167,7 +168,6 @@ class Simulation:
 
             # need to be able to reference the streets based on the intersection id
             for y in range(num_lights):
-                schedule = {}
                 # Grab the line
                 line = f.readline().split(' ')
 
@@ -175,12 +175,11 @@ class Simulation:
                 # schedule['street'] = line[0]
                 # todo: add timer variable constraints (1 <= timer <= duration)
                 for i in range(int(line[1])):
-                    schedule['street'] = line[0]
-                    schedules.append(schedule)
+                    schedules.append(line[0])
 
             # Give the schedule to the appropriate intersection
             # todo: add try-except statement in case unable to find intersection for whatever reason
-            self.intersections[find(self.intersections, intersection)].set_schedule(pd.DataFrame(schedules))
+            self.intersections[find(self.intersections, intersection)].set_schedule(pd.Series(schedules))
             # print(intersection)
 
         #  Finally, cut all unnecessary streets and intersections, where no car will interact with them
@@ -240,7 +239,7 @@ class Simulation:
         # Simulation loop
         for self.current_time in range(self.duration):
             # todo: implement in-simulation print/record statements.
-            self.tick
+            self.tick()
             self.print_lights(self.current_time, self.intersections, self.streets)
             # Check if cars reached their destinations
 
@@ -256,8 +255,6 @@ class Simulation:
         # Move cars/count delay
         for i in self.streets:
             pass
-
-        self.current_time += 1
 
     def score(self, car):
         # calculate score based on car parameters
@@ -292,9 +289,9 @@ class Simulation:
                 remove_list.append(i.get_id)
 
             # A light is always off if the intersection is not listed in the schedule
-            elif i.get_schedule['street'].unique().shape[0] == 1:
+            elif i.get_schedule.unique().size == 1:
                 # Street to update
-                streets[find(streets, i.get_schedule['street'][0])].flip_state()
+                streets[find(streets, i.get_schedule[0])].flip_state()
                 # print("Removing intersection " + str(i.get_id) + " because its always green.")
 
                 # Remove light from list of intersections to check each tick
@@ -429,19 +426,29 @@ class Intersection:
         # light is off by default, so no need to change it
 
     def intersection_tick(self, streets):
-        previous_position = self.schedule[self.cycle_position]
+        # if this is the first tick
+        if self.cycle_position == -1:
+            self.cycle_position += 1
+            streets[find(streets, self.schedule.iat[self.cycle_position])].flip_state()
+            return streets
+
+        previous_position = self.schedule.iat[self.cycle_position]
         # increment current cycle position
-        if self.cycle_position == len(self.schedule):
+        if self.cycle_position + 1 == len(self.schedule):
             # Reset the timer to 1 if it reached the end
             self.cycle_position = 0
         else:
             self.cycle_position += 1
+        print(self.cycle_position)
+        current_position = self.schedule.iat[self.cycle_position]
 
         # Check if lights need to change
-        if previous_position != self.schedule[self.cycle_position]:
+        if previous_position != current_position:
             # Turn off previous position and turn on current position
             streets[find(streets, previous_position)].flip_state()
-            streets[find(streets, self.schedule[self.cycle_position])].flip_state()
+            streets[find(streets, current_position)].flip_state()
+
+        return streets
 
     def __repr__(self):
         return str(self.id)

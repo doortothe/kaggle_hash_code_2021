@@ -12,10 +12,10 @@ sim.read_submission('test_sched.txt')
 sim.run_simulation()
 """
 Expected outcome:
-tick 0: rue-d-athenes is green. rue-d-amsterdam is red
-tick 1: rue-d-athenes is green. rue-d-amsterdam is red
-tick 2: rue-d-athenes is red. rue-d-amsterdam is green
-tick 3: rue-d-athenes is green. rue-d-amsterdam is red
-tick 4: rue-d-athenes is green. rue-d-amsterdam is red
-tick 5: rue-d-athenes is red. rue-d-amsterdam is green
+tick 0: rue-d-amsterdam is red. rue-d-athenes is green
+tick 1: rue-d-amsterdam is red. rue-d-athenes is green
+tick 2: rue-d-amsterdam is green. rue-d-athenes is red
+tick 3: rue-d-amsterdam is red. rue-d-athenes is green
+tick 4: rue-d-amsterdam is red. rue-d-athenes is green
+tick 5: rue-d-amsterdam is green. rue-d-athenes is red
 """
