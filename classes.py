@@ -186,8 +186,14 @@ class Simulation:
         self.cut_streets()
 
         # for i in self.intersections:
-        #     print("id: " + i.id)
+        #     print("id: " + str(i.id))
         #     print('streets: ' + str(i.get_streets))
+
+        # for i in self.intersections:
+        #     print(i.get_id)
+        #     print(i.get_schedule)
+        #     if int(i.get_id) == 2:
+        #         print(i.get_schedule.shape[0])
 
     def create_submission(self, file=None):
         # todo: implement a version for creating a flat submission file for a new input file
@@ -219,46 +225,21 @@ class Simulation:
         # Gather list of streets not in unique_streets
         # print(unique_streets)
         # print(self.streets)
-
-        [self.streets.remove(street) for street in self.streets if street.get_id not in unique_streets]
+        self.streets = [street for street in self.streets if street.get_id in unique_streets]
         # print(self.streets)
 
         # Delete all intersections not in unique_intersections
         # Gather list of intersections not in unique_intersections
+        # print(unique_intersections)
         # print(self.intersections)
-        [self.intersections.remove(it) for it in self.intersections if it.get_id not in unique_intersections]
+        self.intersections = [it for it in self.intersections if str(it.get_id) in unique_intersections]
         # print(self.intersections)
 
     def run_simulation(self):
-        # for i in self.intersections:
-        #     print(i.get_id)
-        #     print(i.get_schedule)
 
-        # Find lights that are always set to on/off and mark as such to optimize later ticks
-        for i in self.intersections:
-            # A light is always on if only one light is mentioned in a schedule
-            if i.get_schedule is None:
-                # How do I update both the intersection and the street?
-                print("Removing intersection " + str(i.get_id) + " because its always red.")
-                self.intersections.remove(i)
+        self.optimize_lights()
 
-            # A light is always off if the intersection is not listed in the schedule
-            elif i.get_schedule.shape[0] == 1:
-
-                # Street to update
-                self.streets[find(self.streets, i.get_schedule['street'][0])].flip_state()
-
-                print("Removing intersection " + str(i.get_id) + " because its always green.")
-
-                # Remove light from list of intersections to check each tick
-                self.intersections.remove(i)
-        # print(str(self.intersections))
         # Simulation loop
-
-        for i in self.intersections:
-            print(i.get_id)
-            print(i.get_schedule)
-
         for self.current_time in range(self.duration):
             # todo: implement in-simulation print/record statements.
             self.tick
@@ -269,7 +250,7 @@ class Simulation:
 
     def tick(self):
         # Update traffic light schedules
-        for i in self.intersections:
+        for light in self.intersections:
             # Check which light should be on
             pass
 
@@ -296,6 +277,31 @@ class Simulation:
 
         # todo: Remove car from the simulation
         self.cars.remove(car)
+
+    def optimize_lights(self):
+        """
+        run_simulation helper function
+        :return:
+        """
+        # Find lights that are always set to on/off and mark as such to optimize later ticks
+        remove_list = []
+        for i in self.intersections:
+            # A light is always on if only one light is mentioned in a schedule
+            if i.get_schedule is None:
+                # How do I update both the intersection and the street?
+                print("Removing intersection " + str(i.get_id) + " because its always red.")
+                remove_list.append(i.get_id)
+
+            # A light is always off if the intersection is not listed in the schedule
+            elif i.get_schedule.shape[0] == 1:
+                # Street to update
+                self.streets[find(self.streets, i.get_schedule['street'][0])].flip_state()
+                print("Removing intersection " + str(i.get_id) + " because its always green.")
+
+                # Remove light from list of intersections to check each tick
+                remove_list.append(i.get_id)
+        # Remove intersections scheduled for disposal
+        self.intersections = [r for r in self.intersections if r.get_id not in remove_list]
 
     # todo: implement optimization method/class
 
@@ -429,7 +435,7 @@ class Intersection:
         # light is off by default, so no need to change it
 
     def __repr__(self):
-        return self.id
+        return str(self.id)
 
 
 class Street:
