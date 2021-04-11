@@ -2,7 +2,6 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 
 import pandas as pd
-import numpy as np
 
 
 def validate_variable(var, var_check):
@@ -43,8 +42,10 @@ def find(array, idt):
             i = x
     return i
 
+
 RED = 'red'
 GREEN = 'green'
+
 
 # def validate_cars()
 
@@ -240,33 +241,60 @@ class Simulation:
 
         # Simulation loop
         for self.current_time in range(self.duration):
-            # todo: implement in-simulation print/record statements.
+            # Record statistics
+            # todo: implement in-simulation statistic gathering.
+
             self.tick()
             # self.print_lights(self.current_time, self.intersections, self.streets)
-            # Check if cars reached their destinations
 
-            # Record statistics
 
     def tick(self):
         # Update traffic light schedules
         for light in self.intersections:
             # Check which light should be on
             self.streets = light.intersection_tick(self.streets)
-            # Am i passing the actual variables or just a copy?
 
         # Move cars/count delay
+        # todo: implement delay tracking
         for street in self.streets:
-            # Move cars in the queue
-            if street.get_state == GREEN: #move cars
-                # Are there cars to move?
-                if street.has_queue:
-                    # pop the first member of the queue and have it cross the street
+            # Move cars in the queue if there is one
+            if street.has_queue:
+                if street.get_state == GREEN:
+                    self.move_queue(street)
+                else:
+                    self.count_delay(street)
 
             # move cars traveling down the road
-
+            self.move_traffic(street)
             pass
 
-    def score(self, car):
+    def move_queue(self, street):
+        # pop the first member of the queue and have it cross the street
+        car = self.cars[find(self.cars, street.pop_queue())]
+        car.cross_intersection()
+
+        # Add the car to its new street
+        self.streets[find(self.streets, car.get_current_streetID)].place_car_in_traffic(car)
+
+    def count_delay(self, street):
+        pass
+
+    def move_traffic(self, street):
+        traffic_areas = street.has_traffic
+        if traffic_areas[0] != -1:
+            if traffic_areas[0] == 0:
+                # Check if the car(s) reached their final destination
+                # todo: move this block of code into a helper function
+                for car in street.get_traffic_cars(0):
+                    if self.cars[find(self.cars, car)].get_destination_street == street.get_id:
+                        self.score_car(car)
+                    else:
+                        # Add car to queue
+                        street.place_car_in_queue(car)
+            # Update the rest of the traffic
+            street.tick_traffic()
+
+    def score_car(self, car):
         # calculate score based on car parameters
         if self.current_time <= self.duration:  # If the car was removed before the simulation ended
             self.score += self.points + (self.duration - self.current_time)
@@ -348,10 +376,9 @@ class Car:
     def __repr__(self):
         return self.id
 
-    def cross_intersection(self, streets):
+    def cross_intersection(self):
         self.path_index += 1
         self.current_street = self.path[self.path_index]
-        self.street_position = streets[find(streets, self.current_street)].get_length
 
     @property
     def get_current_streetID(self):
@@ -369,19 +396,19 @@ class Car:
     def get_id(self):
         return self.id
 
-    # def set_position(self, pos):
-    # self.position = pos
-
     # todo: implement ability to track delays as feature to reduce in optimization
     def add_delay(self):
         # Check if the street has changed
-        if self.current_street != self.car_delay['street']:#street is different
+        if self.current_street != self.car_delay['street']:  # street is different
             # Add new row to delay dataframe/dictionary
+            pass
         else:
             # Add one to the latest delay row
+            pass
 
     def set_end_time(self, end_time):
         self.end_time = end_time
+
 
 class Intersection:
 
@@ -477,8 +504,8 @@ class Street:
     def __init__(self, name, start_intersection_id, end_intersection_id, length):
         self.id = name
         self.length = int(length)
-        self.queue = [] #cars waiting for the light to change
-        self.traffic = {i:[] for i in range(self.length)}# cars currently traveling to the light
+        self.queue = []  # cars waiting for the light to change
+        self.traffic = {i: [] for i in range(self.length)}  # cars currently traveling to the light
         self.start_intersection_id = start_intersection_id
         self.end_intersection_id = end_intersection_id
         self.street_delay = 0
@@ -552,7 +579,7 @@ class Street:
         else:
             self.state = RED
 
-    def pop_car(self):
+    def pop_queue(self):
         """
         Used for a car crossing the street.
         :return: Car that crosses the street. The simulation then uses this car id to call cross_intersection()
@@ -560,3 +587,18 @@ class Street:
         car = self.queue[0]
         self.queue.pop(0)
         return car
+
+    def get_traffic_cars(self, position):
+        # todo: add security as mentioned below
+        """
+        add parameter check if position is less than self.length
+        Should I double check if we're actually returning something?
+        :param position:
+        :return:
+        """
+        return self.traffic[position]
+
+    def tick_traffic(self):
+        # todo: optimize so only move cars in specified traffic areas instead of all
+        for i in range(len(self.traffic) - 1):
+            self.traffic[i] = self.traffic[i + 1]
