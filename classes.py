@@ -145,7 +145,7 @@ class Simulation:
             line = f.readline().replace('\n', '').split(
                 ' ')  # Need to remove new line character to avoid bug when finding unique streets
             # todo: add security check that line[0] doesn't exceed the number of streets aka line[1:]
-            cars.append(Car(y+1, line[1:]))
+            cars.append(Car(y + 1, line[1:]))
 
         # store cars in the simulation's car array
         sim.set_cars(cars)
@@ -297,7 +297,7 @@ class Simulation:
     def score_car(self, car):
         # calculate score based on car parameters
         if self.current_time <= self.duration:  # If the car was removed before the simulation ended
-            points = self.points + (self.duration - self.current_time)
+            points = self.points + (self.duration - (self.current_time + 1))
             self.score += points
             self.num_cars_score_before_end += 1
             print("Car " + str(car.get_id) + " scores " + str(points) + " points.")
@@ -353,12 +353,13 @@ class Simulation:
     def print_cars(cls, tick, streets):
         print("tick: " + str(tick))
         for s in streets:
-            print('\tstreet: ' + str(s.get_id))
+            if s.has_queue or s.has_traffic[0] != -1:
+                print('\tstreet: ' + str(s.get_id))
+
             if s.has_queue:
                 print('\t\tQueue: ' + str(s.get_queue))
             if s.has_traffic[0] != -1:
                 print('\t\tTraffic: ' + str(s.get_traffic))
-
 
     # todo: implement method to find statistics. Such as:
     """
@@ -387,10 +388,11 @@ class Car:
         self.end_time = -1
 
     def __repr__(self):
-        return self.id
+        return str(self.id)
 
     def cross_intersection(self):
         self.path_index += 1
+        # print("car " + str(self.id) + " crossing from " + self.current_street)
         self.current_street = self.path[self.path_index]
 
     @property
@@ -584,7 +586,7 @@ class Street:
         return self.traffic
 
     def __repr__(self):
-        return self.id
+        return str(self.id)
 
     # todo: implement ability to track delays as feature to reduce in optimization
     def add_delay(self, cars):
@@ -623,3 +625,5 @@ class Street:
         # todo: optimize so only move cars in specified traffic areas instead of all
         for i in range(len(self.traffic) - 1):
             self.traffic[i] = self.traffic[i + 1]
+
+        self.traffic[len(self.traffic) - 1] = []
