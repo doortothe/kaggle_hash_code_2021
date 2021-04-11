@@ -2,7 +2,6 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 
 import pandas as pd
-import numpy as np
 
 
 def validate_variable(var, var_check):
@@ -43,8 +42,10 @@ def find(array, idt):
             i = x
     return i
 
+
 RED = 'red'
 GREEN = 'green'
+
 
 # def validate_cars()
 
@@ -143,7 +144,8 @@ class Simulation:
         for y in range(sim.get_num_cars):
             line = f.readline().replace('\n', '').split(
                 ' ')  # Need to remove new line character to avoid bug when finding unique streets
-            cars.append(Car(line[0], line[1:]))
+            # todo: add security check that line[0] doesn't exceed the number of streets aka line[1:]
+            cars.append(Car(y + 1, line[1:]))
 
         # store cars in the simulation's car array
         sim.set_cars(cars)
@@ -240,37 +242,65 @@ class Simulation:
 
         # Simulation loop
         for self.current_time in range(self.duration):
-            # todo: implement in-simulation print/record statements.
+            # Record statistics
+            # todo: implement in-simulation statistic gathering.
+
             self.tick()
             # self.print_lights(self.current_time, self.intersections, self.streets)
-            # Check if cars reached their destinations
-
-            # Record statistics
+            self.print_cars(self.current_time, self.streets)
 
     def tick(self):
         # Update traffic light schedules
         for light in self.intersections:
             # Check which light should be on
             self.streets = light.intersection_tick(self.streets)
-            # Am i passing the actual variables or just a copy?
 
         # Move cars/count delay
+        # todo: implement delay tracking
         for street in self.streets:
-            # Move cars in the queue
-            if street.get_state == GREEN: #move cars
-                # Are there cars to move?
-                if street.has_queue:
-                    # pop the first member of the queue and have it cross the street
-
             # move cars traveling down the road
+            self.move_traffic(street)
 
-            pass
+            # Move cars in the queue if there is one
+            if street.has_queue:
+                if street.get_state == GREEN:
+                    self.move_queue(street)
+                else:
+                    self.count_delay(street)
 
-    def score(self, car):
+    def move_queue(self, street):
+        # pop the first member of the queue and have it cross the street
+        car = self.cars[find(self.cars, street.pop_queue())]
+        car.cross_intersection()
+
+        # Add the car to its new street
+        self.streets[find(self.streets, car.get_current_streetID)].place_car_in_traffic(car)
+
+    def count_delay(self, street):
+        pass
+
+    def move_traffic(self, street):
+        traffic_areas = street.has_traffic
+        if traffic_areas[0] != -1:
+            if traffic_areas[0] == 0:
+                # Check if the car(s) reached their final destination
+                # todo: move this block of code into a helper function
+                for car in street.get_traffic_cars(0):
+                    if self.cars[find(self.cars, car)].get_destination == street.get_id:
+                        self.score_car(car)
+                    else:
+                        # Add car to queue
+                        street.place_car_in_queue(car)
+            # Update the rest of the traffic
+            street.tick_traffic()
+
+    def score_car(self, car):
         # calculate score based on car parameters
         if self.current_time <= self.duration:  # If the car was removed before the simulation ended
-            self.score += self.points + (self.duration - self.current_time)
+            points = self.points + (self.duration - (self.current_time + 1))
+            self.score += points
             self.num_cars_score_before_end += 1
+            print("Car " + str(car.get_id) + " scores " + str(points) + " points.")
         # Otherwise, no score is added
 
         # todo: record car stats
@@ -319,6 +349,18 @@ class Simulation:
             for s in i.get_streets:
                 print("\t\t" + s + ": " + streets[find(streets, s)].get_state)
 
+    @classmethod
+    def print_cars(cls, tick, streets):
+        print("tick: " + str(tick))
+        for s in streets:
+            if s.has_queue or s.has_traffic[0] != -1:
+                print('\tstreet: ' + str(s.get_id))
+
+            if s.has_queue:
+                print('\t\tQueue: ' + str(s.get_queue))
+            if s.has_traffic[0] != -1:
+                print('\t\tTraffic: ' + str(s.get_traffic))
+
     # todo: implement method to find statistics. Such as:
     """
     amount(%) of cars that arrived before deadline.
@@ -346,12 +388,12 @@ class Car:
         self.end_time = -1
 
     def __repr__(self):
-        return self.id
+        return str(self.id)
 
-    def cross_intersection(self, streets):
+    def cross_intersection(self):
         self.path_index += 1
+        # print("car " + str(self.id) + " crossing from " + self.current_street)
         self.current_street = self.path[self.path_index]
-        self.street_position = streets[find(streets, self.current_street)].get_length
 
     @property
     def get_current_streetID(self):
@@ -369,19 +411,19 @@ class Car:
     def get_id(self):
         return self.id
 
-    # def set_position(self, pos):
-    # self.position = pos
-
     # todo: implement ability to track delays as feature to reduce in optimization
     def add_delay(self):
         # Check if the street has changed
-        if self.current_street != self.car_delay['street']:#street is different
+        if self.current_street != self.car_delay['street']:  # street is different
             # Add new row to delay dataframe/dictionary
+            pass
         else:
             # Add one to the latest delay row
+            pass
 
     def set_end_time(self, end_time):
         self.end_time = end_time
+
 
 class Intersection:
 
@@ -457,7 +499,7 @@ class Intersection:
             self.cycle_position = 0
         else:
             self.cycle_position += 1
-        print(self.cycle_position)
+        # print(self.cycle_position)
         current_position = self.schedule.iat[self.cycle_position]
 
         # Check if lights need to change
@@ -477,8 +519,8 @@ class Street:
     def __init__(self, name, start_intersection_id, end_intersection_id, length):
         self.id = name
         self.length = int(length)
-        self.queue = [] #cars waiting for the light to change
-        self.traffic = {i:[] for i in range(self.length)}# cars currently traveling to the light
+        self.queue = []  # cars waiting for the light to change
+        self.traffic = {i: [] for i in range(self.length)}  # cars currently traveling to the light
         self.start_intersection_id = start_intersection_id
         self.end_intersection_id = end_intersection_id
         self.street_delay = 0
@@ -493,12 +535,12 @@ class Street:
         # todo: Should I store the car id or the car itself?
         self.queue.append(car.get_id)
 
-    def place_car_in_traffic(self, car):
+    def place_car_in_traffic(self, car_id):
         """
         Same as place_car_in_queue except traffic array.
-        :param car:
+        :param car_id:
         """
-        self.traffic[self.length - 1].append(car.get_id)
+        self.traffic[self.length - 1].append(car_id)
 
     @property
     def get_id(self):
@@ -535,8 +577,16 @@ class Street:
         else:
             return traffic_values
 
+    @property
+    def get_queue(self):
+        return self.queue
+
+    @property
+    def get_traffic(self):
+        return self.traffic
+
     def __repr__(self):
-        return self.id
+        return str(self.id)
 
     # todo: implement ability to track delays as feature to reduce in optimization
     def add_delay(self, cars):
@@ -552,7 +602,7 @@ class Street:
         else:
             self.state = RED
 
-    def pop_car(self):
+    def pop_queue(self):
         """
         Used for a car crossing the street.
         :return: Car that crosses the street. The simulation then uses this car id to call cross_intersection()
@@ -560,3 +610,20 @@ class Street:
         car = self.queue[0]
         self.queue.pop(0)
         return car
+
+    def get_traffic_cars(self, position):
+        # todo: add security as mentioned below
+        """
+        add parameter check if position is less than self.length
+        Should I double check if we're actually returning something?
+        :param position:
+        :return:
+        """
+        return self.traffic[position]
+
+    def tick_traffic(self):
+        # todo: optimize so only move cars in specified traffic areas instead of all
+        for i in range(len(self.traffic) - 1):
+            self.traffic[i] = self.traffic[i + 1]
+
+        self.traffic[len(self.traffic) - 1] = []
