@@ -12,10 +12,20 @@ sim.read_submission('test_sched.txt')
 sim.run_simulation()
 """
 Expected outcome:
-tick 0: rue-d-amsterdam is red. rue-d-athenes is green
-tick 1: rue-d-amsterdam is red. rue-d-athenes is green
-tick 2: rue-d-amsterdam is green. rue-d-athenes is red
-tick 3: rue-d-amsterdam is red. rue-d-athenes is green
-tick 4: rue-d-amsterdam is red. rue-d-athenes is green
-tick 5: rue-d-amsterdam is green. rue-d-athenes is red
+tick 0: 
+    car 1 crosses intersection 0 and into rue-de-amsterdam traffic
+    car 2 crosses intersection 1 and into rue-de-moscou traffic
+tick 1:
+    car 1 crosses rue-de-amsterdam traffic and is placed in queue. 
+        Can't cross due to red light
+tick 2:
+    car 1 can cross the street and moves to rue-de-moscou
+tick 3: 
+    car 2 reaches end of rue-de-moscou, is placed into queue. 
+        can go because green light, into rue-de-londres
+tick 4: 
+    car 2 reaches end of rue-de-londres, its destination
+        Scores 1002 points
+tick 5: 
+    car 1 reaches end of rue-de-moscou, green light, crosses to rue-de-rome
 """

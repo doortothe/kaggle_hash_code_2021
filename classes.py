@@ -144,7 +144,8 @@ class Simulation:
         for y in range(sim.get_num_cars):
             line = f.readline().replace('\n', '').split(
                 ' ')  # Need to remove new line character to avoid bug when finding unique streets
-            cars.append(Car(line[0], line[1:]))
+            # todo: add security check that line[0] doesn't exceed the number of streets aka line[1:]
+            cars.append(Car(y+1, line[1:]))
 
         # store cars in the simulation's car array
         sim.set_cars(cars)
@@ -246,7 +247,7 @@ class Simulation:
 
             self.tick()
             # self.print_lights(self.current_time, self.intersections, self.streets)
-
+            self.print_cars(self.current_time, self.streets)
 
     def tick(self):
         # Update traffic light schedules
@@ -257,16 +258,15 @@ class Simulation:
         # Move cars/count delay
         # todo: implement delay tracking
         for street in self.streets:
+            # move cars traveling down the road
+            self.move_traffic(street)
+
             # Move cars in the queue if there is one
             if street.has_queue:
                 if street.get_state == GREEN:
                     self.move_queue(street)
                 else:
                     self.count_delay(street)
-
-            # move cars traveling down the road
-            self.move_traffic(street)
-            pass
 
     def move_queue(self, street):
         # pop the first member of the queue and have it cross the street
@@ -286,7 +286,7 @@ class Simulation:
                 # Check if the car(s) reached their final destination
                 # todo: move this block of code into a helper function
                 for car in street.get_traffic_cars(0):
-                    if self.cars[find(self.cars, car)].get_destination_street == street.get_id:
+                    if self.cars[find(self.cars, car)].get_destination == street.get_id:
                         self.score_car(car)
                     else:
                         # Add car to queue
@@ -297,8 +297,10 @@ class Simulation:
     def score_car(self, car):
         # calculate score based on car parameters
         if self.current_time <= self.duration:  # If the car was removed before the simulation ended
-            self.score += self.points + (self.duration - self.current_time)
+            points = self.points + (self.duration - self.current_time)
+            self.score += points
             self.num_cars_score_before_end += 1
+            print("Car " + str(car.get_id) + " scores " + str(points) + " points.")
         # Otherwise, no score is added
 
         # todo: record car stats
@@ -346,6 +348,17 @@ class Simulation:
             print("\tintersection: " + str(i.get_id))
             for s in i.get_streets:
                 print("\t\t" + s + ": " + streets[find(streets, s)].get_state)
+
+    @classmethod
+    def print_cars(cls, tick, streets):
+        print("tick: " + str(tick))
+        for s in streets:
+            print('\tstreet: ' + str(s.get_id))
+            if s.has_queue:
+                print('\t\tQueue: ' + str(s.get_queue))
+            if s.has_traffic[0] != -1:
+                print('\t\tTraffic: ' + str(s.get_traffic))
+
 
     # todo: implement method to find statistics. Such as:
     """
@@ -484,7 +497,7 @@ class Intersection:
             self.cycle_position = 0
         else:
             self.cycle_position += 1
-        print(self.cycle_position)
+        # print(self.cycle_position)
         current_position = self.schedule.iat[self.cycle_position]
 
         # Check if lights need to change
@@ -520,12 +533,12 @@ class Street:
         # todo: Should I store the car id or the car itself?
         self.queue.append(car.get_id)
 
-    def place_car_in_traffic(self, car):
+    def place_car_in_traffic(self, car_id):
         """
         Same as place_car_in_queue except traffic array.
-        :param car:
+        :param car_id:
         """
-        self.traffic[self.length - 1].append(car.get_id)
+        self.traffic[self.length - 1].append(car_id)
 
     @property
     def get_id(self):
@@ -561,6 +574,14 @@ class Street:
         #     return [traffic_values]
         else:
             return traffic_values
+
+    @property
+    def get_queue(self):
+        return self.queue
+
+    @property
+    def get_traffic(self):
+        return self.traffic
 
     def __repr__(self):
         return self.id
