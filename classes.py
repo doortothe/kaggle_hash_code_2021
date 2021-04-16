@@ -50,6 +50,8 @@ GREEN = 'green'
 # def validate_cars()
 
 class Simulation:
+    # todo: create proper documentation
+    # todo: remove unused variables/functions
     def __init__(self, duration, num_intersections, num_streets, num_cars, points):
         # Input variables from the file
         self.duration = validate_variable(duration, 'D')
@@ -67,6 +69,16 @@ class Simulation:
 
         # Statistic tracking variables
         self.num_cars_score_before_end = 0
+
+        # statistic tracking dataframes
+        self.car_delays = pd.DataFrame(columns=['car id', 'street', 'delay'])
+        # Just how much data do I want to track here?
+        # I'll start simple for now.
+        self.score_df = pd.DataFrame(columns=['car id', 'score',
+                                              'bonus points', 'time scored',
+                                              'delayed'])
+
+        self.street_delay_df = pd.DataFrame(columns=['street'])
 
     @property
     def get_num_streets(self):
@@ -244,10 +256,23 @@ class Simulation:
         for self.current_time in range(self.duration):
             # Record statistics
             # todo: implement in-simulation statistic gathering.
+            """
+            self.num_cars_score_before_end = length of score_df
+            """
 
             self.tick()
             # self.print_lights(self.current_time, self.intersections, self.streets)
             self.print_cars(self.current_time, self.streets)
+
+        # End of simulation statistic calculating
+
+        # calculate time each scored car spent driving
+        self.calculate_statistics()
+
+        # Record dataframes as output
+        # todo: find naming schema that can be procedural yet understandable
+        with pd.ExcelWriter('data/simulation.xlsx') as writer:
+            self.score_df.to_excel(writer, sheet_name='Scores')
 
     def tick(self):
         # Update traffic light schedules
@@ -269,6 +294,11 @@ class Simulation:
                     self.count_delay(street)
 
     def move_queue(self, street):
+        """
+        Helper function
+        :param street:
+        :return:
+        """
         # pop the first member of the queue and have it cross the street
         car = self.cars[find(self.cars, street.pop_queue())]
         car.cross_intersection()
@@ -280,6 +310,11 @@ class Simulation:
         pass
 
     def move_traffic(self, street):
+        """
+        Helper function
+        :param street:
+        :return:
+        """
         traffic_areas = street.has_traffic
         if traffic_areas[0] != -1:
             if traffic_areas[0] == 0:
@@ -297,21 +332,32 @@ class Simulation:
     def score_car(self, car):
         # calculate score based on car parameters
         if self.current_time <= self.duration:  # If the car was removed before the simulation ended
-            points = self.points + (self.duration - (self.current_time + 1))
+            bonus_points = self.duration - (self.current_time + 1)
+            points = self.points + bonus_points
             self.score += points
-            self.num_cars_score_before_end += 1
+
             print("Car " + str(car.get_id) + " scores " + str(points) + " points.")
+
+            # Add to the score table
+            new_row = {'car id': car.get_id, 'score': points,
+                       'bonus points': bonus_points, 'time scored': self.current_time,
+                       'delayed': car.get_delay['delay'].sum()}
+            self.score_df.append(new_row, ignore_index=True)
+
         # Otherwise, no score is added
 
         # todo: record car stats
         """
         Stats to track:
-            When car was removed
-            Points earned
-            Time spent at red light
+            When car was removed: check
+            Points earned: check
+            Time spent at red light: check
+            Bonus points: check
         """
 
-        # todo: Remove car from the simulation
+        # Append car's delay table to the global table
+        self.car_delays.append(car.get_delay)
+
         self.cars.remove(car)
 
     @classmethod
@@ -361,17 +407,28 @@ class Simulation:
             if s.has_traffic[0] != -1:
                 print('\t\tTraffic: ' + str(s.get_traffic))
 
-    # todo: implement method to find statistics. Such as:
-    """
-    amount(%) of cars that arrived before deadline.
-    Earliest arrival (points earned, time driven)
-    Latest arrival (and points earned, time driven)
-    Average points earned
-    Average time(ticks) driven
-    Create graph/database of tracking positions and num lights at a time
-    Create visualizations of such
-    Amount of delay caused by each street per tick
-    """
+    def calculate_statistics(self):
+        # todo: implement statistic gathering. Such as:
+        """
+        amount(%) of cars that arrived before deadline : length of score_df / self.num_cars
+        Earliest arrival (points earned, time driven): query earliest score_df
+        Latest arrival (and points earned, time driven): query latest score_df
+        Average points earned: average points + bonus_points of score_df
+        Average time(ticks) driven: time_scored - delay in score_df
+        Create graph/database of tracking positions and num lights at a time
+        Amount of delay caused by each street per tick
+        """
+        self.score_df['time driven'] = self.score_df['time scored'] - self.score_df['delayed']
+
+    @classmethod
+    def get_street_delays(cls, streets):
+        # todo: implement this
+        """
+        Summarize/append the individual street delay dataframes into a single dataframe
+        :param streets:
+        :return:
+        """
+        return None
 
 
 class Car:
@@ -384,7 +441,7 @@ class Car:
         self.path_index = 0
 
         # Statistic tracking variables
-        self.car_delay = pd.DataFrame(columns=['street', 'delay'])
+        self.car_delay = pd.DataFrame(columns=['id', 'street', 'delay'])
         self.end_time = -1
 
     def __repr__(self):
@@ -411,15 +468,20 @@ class Car:
     def get_id(self):
         return self.id
 
+    @property
+    def get_delay(self):
+        return self.car_delay
+
     # todo: implement ability to track delays as feature to reduce in optimization
     def add_delay(self):
         # Check if the street has changed
         if self.current_street != self.car_delay['street']:  # street is different
             # Add new row to delay dataframe/dictionary
-            pass
+            new_row = {'car id': self.id, 'street': self.current_street, 'delay': 1}
+            self.car_delay.append(new_row, ignore_index=True)
         else:
-            # Add one to the latest delay row
-            pass
+            # Add one delay to the latest row
+            self.car_delay.at[len(self.car_delay.index) - 1, 'delay'] += 1
 
     def set_end_time(self, end_time):
         self.end_time = end_time
@@ -438,6 +500,7 @@ class Intersection:
         self.schedule = None
 
         # Statistic variables
+        # todo: implement intersection delay tracking
         self.delay = 0
 
     def set_schedule(self, schedule):
@@ -523,8 +586,10 @@ class Street:
         self.traffic = {i: [] for i in range(self.length)}  # cars currently traveling to the light
         self.start_intersection_id = start_intersection_id
         self.end_intersection_id = end_intersection_id
-        self.street_delay = 0
         self.state = RED
+
+        # statistic variables
+        self.street_delay = pd.DataFrame(columns=['tick', 'cars', 'delay'])
 
     def place_car_in_queue(self, car):
         """
