@@ -22,6 +22,10 @@ Tools:
   * Scheduling optimization
   * Constraint optimization
 
+During machine learning analysis:
+* Do distribution analysis of points/bonus points earned. Can they be summarized with average and standard deviation?
+* Check if there's a difference when calculating average times for cars that scored vs didn't score vs either/all
+
 Sources:
 1. https://towardsdatascience.com/linear-programming-and-discrete-optimization-with-python-using-pulp-449f3c5f6e99
 2. https://laptrinhx.com/an-intro-to-integer-programming-for-engineers-simplified-bus-scheduling-1653739760/
