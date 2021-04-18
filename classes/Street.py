@@ -122,7 +122,7 @@ class Street:
         return self.current_delay
 
     @property
-    def get_delay(self):
+    def get_delay_df(self):
         return self.street_delay_df
 
     def __repr__(self):

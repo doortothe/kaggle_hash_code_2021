@@ -123,5 +123,5 @@ class Intersection:
         return self.schedule
 
     @property
-    def get_delay(self):
+    def get_delay_df(self):
         return self.intersection_delay_df

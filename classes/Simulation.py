@@ -27,14 +27,16 @@ class Simulation:
         self.num_cars_score_before_end = 0
 
         # statistic tracking dataframes
-        self.car_delays = pd.DataFrame(columns=['car id', 'street', 'delay'])
+        self.car_delays_df = pd.DataFrame(columns=['car id', 'street', 'delay'])
         # Just how much data do I want to track here?
         # I'll start simple for now.
         self.score_df = pd.DataFrame(columns=['car id', 'score',
                                               'bonus points', 'time scored',
                                               'delayed'])
-
-        self.street_delay_df = pd.DataFrame(columns=['street'])
+        # todo (task): Flesh out these dataframes
+        self.street_delays_df = None
+        self.intersection_delays_df = pd.DataFrame()
+        self.general_stats_df = pd.DataFrame()
 
     def set_streets(self, streets):
         # todo: validate parameter is array of streets
@@ -197,25 +199,26 @@ class Simulation:
             # Record statistics
             # todo (task): implement in-simulation statistic gathering.
             """
-            self.num_cars_score_before_end = length of score_df
+
             """
 
             self.tick()
             # self.print_lights(self.current_time, self.intersections, self.streets)
-            self.print_cars(self.current_time, self.streets)
+            # self.print_cars(self.current_time, self.streets)
 
         # End of simulation statistic calculating
 
         # Append car_dfs for cars that did not reach their destination
         self.car_cleanup()
 
+        # Append individual street and intersection dataframes into one combined dataframe
+        self.append_dfs()
+
         # calculate time each scored car spent driving
         self.calculate_statistics()
 
         # Record dataframes as output
-        # todo (task): find naming schema that can be procedural yet understandable
-        with pd.ExcelWriter('data/simulation.xlsx') as writer:
-            self.score_df.to_excel(writer, sheet_name='Scores')
+        self.publish_statistics()
 
     def tick(self):
         # Update traffic light schedules
@@ -294,7 +297,7 @@ class Simulation:
         # Otherwise, no score is added
 
         # Append car's delay table to the global car delay table
-        self.car_delays.append(car.get_delay)
+        self.car_delays_df.append(car.get_delay)
 
         self.cars.remove(car)
 
@@ -348,15 +351,49 @@ class Simulation:
     def calculate_statistics(self):
         # todo (task): implement statistic gathering. Such as:
         """
-        amount(%) of cars that arrived before deadline : length of score_df / self.num_cars
-        Earliest arrival (points earned, time driven): query earliest score_df
-        Latest arrival (and points earned, time driven): query latest score_df
-        Average points earned: average points + bonus_points of score_df
-        Average time(ticks) driven: time_scored - delay in score_df
         Create graph/database of tracking positions and num lights at a time
         Amount of delay caused by each street per tick
         """
         self.score_df['time driven'] = self.score_df['time scored'] - self.score_df['delayed']
+
+        # Create general statistics dataframe
+        self.create_general_df()
+
+    def append_dfs(self):
+        #todo (task): combine individual car, street, and intersection dataframes into the simulation dfs
+        self.street_delays_df = self.append_street_delays(self.streets)
+        self.intersection_delays_df = self.append_intersection_delays(self.intersections)
+
+    def create_general_df(self):
+        # todo (As machine learning progresses): Add more statistics to gather.
+        # Gathers the following statistics into a table
+        """
+        amount(%) of cars that arrived before deadline : length of score_df / self.num_cars
+        Earliest arrival (points earned, time driven): query earliest score_df
+        Latest arrival (and points earned, time driven): query latest score_df
+        Average points earned: average points + bonus_points of score_df
+        Average time(ticks) driven:
+        :return:
+        """
+        general_stats = {
+            'Earliest Arrival': "",
+            'Num cars completed': len(self.score_df.index),
+            '% cars completed': round((len(self.score_df.index) / self.num_cars) * 100, 2),
+            'Average points earned': round(self.score_df['score'].average(), 2),
+            'Average bonus points earned': round(self.score_df['bonus points'].average(), 2),
+            'Average time driving': round(self.score_df['time driven'].average(), 2)
+        }
+
+        return pd.DataFrame(general_stats)
+
+    def publish_statistics(self):
+        # todo (task): find naming schema that can be procedural yet understandable
+        with pd.ExcelWriter('data/simulation.xlsx') as writer:
+            self.general_stats_df.to_excel(writer, sheet_name='General')
+            self.score_df.to_excel(writer, sheet_name='Scores')
+            self.street_delays_df.to_excel(writer, sheet_name='Streets')
+            self.car_delays_df.to_excel(writer, sheet_name='Cars')
+            self.intersection_delays_df.to_excel(writer, sheet_name='Intersections')
 
     def formulate_initial_submission(self):
         # todo (task: after delay tracking and before machine learning implementation): implement this function
@@ -370,14 +407,38 @@ class Simulation:
         """
 
     @classmethod
-    def get_street_delays(cls, streets):
-        # todo (task): implement this
+    def append_street_delays(cls, streets):
         """
         Summarize/append the individual street delay dataframes into a single dataframe
         :param streets:
         :return:
         """
-        return None
+        # todo (optimize): check if I can do this in one line with list comprehension
+        temp_df = pd.DataFrame()
+        for i in streets:
+            temp_df.append(i.get_delay_df())
+
+        return temp_df
+
+    @classmethod
+    def append_intersection_delays(cls, intersections):
+        # todo (optimize): check if I can do this in one line with list comprehension
+        temp_df = pd.DataFrame()
+
+        for i in intersections:
+            temp_df.append(i.get_delay_df())
+
+        return temp_df
+
+    @classmethod
+    def append_car_delays(cls, cars):
+        # todo (optimize): check if I can do this in one line with list comprehension
+        temp_df = pd.DataFrame()
+
+        for i in cars:
+            temp_df.append(i.get_delay_df)
+
+        return temp_df
 
     def car_cleanup(self):
         # todo (task): implement this
@@ -386,6 +447,7 @@ class Simulation:
         :return:
         """
         pass
+
     @property
     def get_num_streets(self):
         return self.num_streets

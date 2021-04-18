@@ -51,7 +51,7 @@ class Car:
         return self.id
 
     @property
-    def get_delay(self):
+    def get_delay_df(self):
         return self.car_delay_df
 
     def __repr__(self):
