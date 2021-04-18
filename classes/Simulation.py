@@ -4,6 +4,8 @@ import classes as cl
 
 from . import Car, Intersection, Street
 
+from datetime import datetime
+
 
 class Simulation:
     # todo (documentation): create proper documentation
@@ -209,7 +211,7 @@ class Simulation:
         # End of simulation statistic calculating
 
         # Append car_dfs for cars that did not reach their destination
-        self.car_cleanup()
+        self.score_df, self.car_delays_df = self.car_cleanup(self.cars, self.score_df, self.car_delays_df)
 
         # Append individual street and intersection dataframes into one combined dataframe
         self.append_dfs()
@@ -289,15 +291,19 @@ class Simulation:
                 Bonus points
             """
             # Add to the score table
-            new_row = {'car id': car.get_id, 'score': points,
-                       'bonus points': bonus_points, 'time scored': self.current_time,
-                       'delayed': car.get_delay['delay'].sum()}
+            new_row = {
+                'car id': car.get_id,
+                'score': points,
+                'bonus points': bonus_points,
+                'time scored': self.current_time,
+                'delayed': car.get_delay_df['delay'].sum(skipna=True)
+            }
             self.score_df.append(new_row, ignore_index=True)
 
         # Otherwise, no score is added
 
         # Append car's delay table to the global car delay table
-        self.car_delays_df.append(car.get_delay)
+        self.car_delays_df.append(car.get_delay_df, ignore_index=True)
 
         self.cars.remove(car)
 
@@ -359,8 +365,37 @@ class Simulation:
         # Create general statistics dataframe
         self.create_general_df()
 
+    @classmethod
+    def car_cleanup(cls, cars, score_df, car_delays_df):
+        # todo (task): implement this
+        """
+        Record stats for all cars that didn't reach their destination
+        :return:
+        """
+        # todo (optimize): find way to reuse score car method for this purpose
+        for car in cars:
+            new_row = {
+                'car id': car.get_id,
+                'score': None,
+                'bonus points': None,
+                # todo (during machine learning analysis): should I set the time for null or end of the simulation?
+                'time scored': None,
+                'delayed': car.get_delay_df['delay'].sum(skipna=True)
+            }
+
+            # Append to the score dataframe
+            score_df.append(new_row, ignore_index=True)
+
+            # Append car's delay table to teh global car delay table
+            car_delays_df.append(car.get_delay_df, ignore_index=True)
+
+        return score_df, car_delays_df
+
     def append_dfs(self):
-        #todo (task): combine individual car, street, and intersection dataframes into the simulation dfs
+        """
+        This function compiles the individual street and intersection delay dataframes into global dataframes
+        :return:
+        """
         self.street_delays_df = self.append_street_delays(self.streets)
         self.intersection_delays_df = self.append_intersection_delays(self.intersections)
 
@@ -376,19 +411,35 @@ class Simulation:
         :return:
         """
         general_stats = {
+            #todo(same as above): finish the string saying which car was earliest, when, and points earned
             'Earliest Arrival': "",
+
+            #todo(same as above): finish string saying which car was latest, when, and points earned
+            'Latest Arrival': "",
+
             'Num cars completed': len(self.score_df.index),
             '% cars completed': round((len(self.score_df.index) / self.num_cars) * 100, 2),
-            'Average points earned': round(self.score_df['score'].average(), 2),
-            'Average bonus points earned': round(self.score_df['bonus points'].average(), 2),
-            'Average time driving': round(self.score_df['time driven'].average(), 2)
+
+            # todo (same as above): calculate standard deviations
+            'Average points earned': round(self.score_df['score'].mean(skipna=True), 2),
+            'Average bonus points earned': round(self.score_df['bonus points'].mean(skipna=True), 2),
+            'Average time driving': round(self.score_df['time driven'].mean(skipna=True), 2)
         }
+
+        """
+        During analysis of machine learning progress, I want to compile the multiple general_dataframes as a
+        bird's eye view of the progress made in each iteration.
+        
+        Do distribution analysis of points/bonus points data
+        """
 
         return pd.DataFrame(general_stats)
 
     def publish_statistics(self):
         # todo (task): find naming schema that can be procedural yet understandable
-        with pd.ExcelWriter('data/simulation.xlsx') as writer:
+        # for now, using the datetime
+        dt_string = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        with pd.ExcelWriter('data/simulation' + dt_string + '.xlsx') as writer:
             self.general_stats_df.to_excel(writer, sheet_name='General')
             self.score_df.to_excel(writer, sheet_name='Scores')
             self.street_delays_df.to_excel(writer, sheet_name='Streets')
@@ -416,7 +467,7 @@ class Simulation:
         # todo (optimize): check if I can do this in one line with list comprehension
         temp_df = pd.DataFrame()
         for i in streets:
-            temp_df.append(i.get_delay_df())
+            temp_df.append(i.get_delay_df(), ignore_index=True)
 
         return temp_df
 
@@ -426,27 +477,10 @@ class Simulation:
         temp_df = pd.DataFrame()
 
         for i in intersections:
-            temp_df.append(i.get_delay_df())
+            temp_df.append(i.get_delay_df(), ignore_index=True)
 
         return temp_df
 
-    @classmethod
-    def append_car_delays(cls, cars):
-        # todo (optimize): check if I can do this in one line with list comprehension
-        temp_df = pd.DataFrame()
-
-        for i in cars:
-            temp_df.append(i.get_delay_df)
-
-        return temp_df
-
-    def car_cleanup(self):
-        # todo (task): implement this
-        """
-        Record stats for all cars that didn't reach their destination
-        :return:
-        """
-        pass
 
     @property
     def get_num_streets(self):
