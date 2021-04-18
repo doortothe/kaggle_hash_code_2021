@@ -224,7 +224,6 @@ class Simulation:
             self.streets = light.intersection_tick(self.streets)
 
         # Move cars/count delay
-        # todo: implement delay tracking
         for street in self.streets:
             # move cars traveling down the road
             self.move_traffic(street)
@@ -358,6 +357,17 @@ class Simulation:
         Amount of delay caused by each street per tick
         """
         self.score_df['time driven'] = self.score_df['time scored'] - self.score_df['delayed']
+
+    def formulate_initial_submission(self):
+        # todo (task: after delay tracking and before machine learning implementation): implement this function
+        """
+        Split the function into 4 main steps:
+            Check the max number of streets an intersection can have.
+            Find streets that cars won't travel and cut them from consideration
+            Find intersections that should always be on/off
+            Create basic submission file where every traffic light has a one second rotation
+        :return:
+        """
 
     @classmethod
     def get_street_delays(cls, streets):

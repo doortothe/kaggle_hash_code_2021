@@ -21,6 +21,8 @@ class Intersection:
         4 streets go through it at a time 
         """
         # todo: (security) check to see max number of streets an intersection has in the submission file
+        # then implement dynamic way to add columns ala dynamic length of Street traffic dictionary
+        # self.intersection_df_columns = []
         self.intersection_delay_df = pd.DataFrame(columns=['tick', 'total delay',
                                                            'street 1', 's1 delay',
                                                            'street 2', 's2 delay',
