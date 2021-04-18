@@ -2,7 +2,7 @@
 
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
-from classes import Simulation
+from classes_old import Simulation
 
 
 sim = Simulation.read_input('test_sim.txt')
@@ -10,6 +10,8 @@ sim.read_submission('test_sched.txt')
 
 # Run simulation
 sim.run_simulation()
+
+# todo (debugging): debug delay tracking methods for simulation, streets, cars, and intersections
 """
 Expected outcome:
 tick 0: 
