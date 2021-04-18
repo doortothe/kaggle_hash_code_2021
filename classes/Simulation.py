@@ -6,8 +6,8 @@ from . import Car, Intersection, Street
 
 
 class Simulation:
-    # todo: create proper documentation
-    # todo: remove unused variables/functions
+    # todo (documentation): create proper documentation
+    # todo (code cleaning): remove unused variables/functions
     def __init__(self, duration, num_intersections, num_streets, num_cars, points):
         # Input variables from the file
         self.duration = cl.validate_variable(duration, 'D')
@@ -35,22 +35,6 @@ class Simulation:
                                               'delayed'])
 
         self.street_delay_df = pd.DataFrame(columns=['street'])
-
-    @property
-    def get_num_streets(self):
-        return self.num_streets
-
-    @property
-    def get_num_intersections(self):
-        return self.num_intersections
-
-    @property
-    def get_num_cars(self):
-        return self.num_cars
-
-    @property
-    def get_current_time(self):
-        return self.current_time
 
     def set_streets(self, streets):
         # todo: validate parameter is array of streets
@@ -122,7 +106,7 @@ class Simulation:
         f.close()
         return sim
 
-    # todo: combine read_input and read_submission so they are called in one line by main.py
+    # todo (user-friendliness): combine read_input and read_submission so they are called in one line by main.py
     def read_submission(self, file):
         f = open(file, 'r')
         num_schedules = int(f.readline())
@@ -181,7 +165,7 @@ class Simulation:
         # Create list of all streets and intersections cars touch
         all_streets = pd.DataFrame()
 
-        # todo: optimize
+        # todo (optimization): optimize
         for i in cars:
             all_street = pd.DataFrame()
             all_street['streets'] = i.get_path
@@ -211,7 +195,7 @@ class Simulation:
         # Simulation loop
         for self.current_time in range(self.duration):
             # Record statistics
-            # todo: implement in-simulation statistic gathering.
+            # todo (task): implement in-simulation statistic gathering.
             """
             self.num_cars_score_before_end = length of score_df
             """
@@ -222,11 +206,14 @@ class Simulation:
 
         # End of simulation statistic calculating
 
+        # Append car_dfs for cars that did not reach their destination
+        self.car_cleanup()
+
         # calculate time each scored car spent driving
         self.calculate_statistics()
 
         # Record dataframes as output
-        # todo: find naming schema that can be procedural yet understandable
+        # todo (task): find naming schema that can be procedural yet understandable
         with pd.ExcelWriter('data/simulation.xlsx') as writer:
             self.score_df.to_excel(writer, sheet_name='Scores')
 
@@ -247,7 +234,8 @@ class Simulation:
                 if street.get_state == cl.GREEN:
                     self.move_queue(street)
                 else:
-                    self.count_delay(street)
+                    # Calling this method will also add delay to the cars
+                    street.add_delay(self.cars)
 
     def move_queue(self, street):
         """
@@ -262,9 +250,6 @@ class Simulation:
         # Add the car to its new street
         self.streets[cl.find(self.streets, car.get_current_streetID)].place_car_in_traffic(car)
 
-    def count_delay(self, street):
-        pass
-
     def move_traffic(self, street):
         """
         Helper function
@@ -275,7 +260,7 @@ class Simulation:
         if traffic_areas[0] != -1:
             if traffic_areas[0] == 0:
                 # Check if the car(s) reached their final destination
-                # todo: move this block of code into a helper function
+                # todo (clean code): move this block of code into a helper function
                 for car in street.get_traffic_cars(0):
                     if self.cars[cl.find(self.cars, car)].get_destination == street.get_id:
                         self.score_car(car)
@@ -294,6 +279,13 @@ class Simulation:
 
             print("Car " + str(car.get_id) + " scores " + str(points) + " points.")
 
+            """
+            Car stats tracked:
+                When car was removed
+                Points earned
+                Time spent at red light
+                Bonus points
+            """
             # Add to the score table
             new_row = {'car id': car.get_id, 'score': points,
                        'bonus points': bonus_points, 'time scored': self.current_time,
@@ -302,16 +294,7 @@ class Simulation:
 
         # Otherwise, no score is added
 
-        # todo: record car stats
-        """
-        Stats to track:
-            When car was removed: check
-            Points earned: check
-            Time spent at red light: check
-            Bonus points: check
-        """
-
-        # Append car's delay table to the global table
+        # Append car's delay table to the global car delay table
         self.car_delays.append(car.get_delay)
 
         self.cars.remove(car)
@@ -364,7 +347,7 @@ class Simulation:
                 print('\t\tTraffic: ' + str(s.get_traffic))
 
     def calculate_statistics(self):
-        # todo: implement statistic gathering. Such as:
+        # todo (task): implement statistic gathering. Such as:
         """
         amount(%) of cars that arrived before deadline : length of score_df / self.num_cars
         Earliest arrival (points earned, time driven): query earliest score_df
@@ -378,10 +361,33 @@ class Simulation:
 
     @classmethod
     def get_street_delays(cls, streets):
-        # todo: implement this
+        # todo (task): implement this
         """
         Summarize/append the individual street delay dataframes into a single dataframe
         :param streets:
         :return:
         """
         return None
+
+    def car_cleanup(self):
+        # todo (task): implement this
+        """
+        Record stats for all cars that didn't reach their destination
+        :return:
+        """
+        pass
+    @property
+    def get_num_streets(self):
+        return self.num_streets
+
+    @property
+    def get_num_intersections(self):
+        return self.num_intersections
+
+    @property
+    def get_num_cars(self):
+        return self.num_cars
+
+    @property
+    def get_current_time(self):
+        return self.current_time

@@ -16,8 +16,16 @@ class Intersection:
         self.schedule = None
 
         # Statistic variables
-        # todo: implement intersection delay tracking
-        self.delay = 0
+        """
+        Gonna operate under the assumption that a given intersection can't have more than
+        4 streets go through it at a time 
+        """
+        # todo: (security) check to see max number of streets an intersection has in the submission file
+        self.intersection_delay_df = pd.DataFrame(columns=['tick', 'total delay',
+                                                           'street 1', 's1 delay',
+                                                           'street 2', 's2 delay',
+                                                           'street 3', 's3 delay',
+                                                           'street 4', 's4 delay'])
 
     def set_schedule(self, schedule):
         self.schedule = schedule
@@ -27,24 +35,27 @@ class Intersection:
     def add_street(self, street_id):
         self.streets.append(street_id)
 
-    def add_delay(self):
-        self.delay += 1
+    def add_delay(self, streets, tick):
+        """
+        Call this function after calculating delay for the streets first
+        :param tick: Current tick
+        :param streets: list of streets from Simulation for Intersection to query
+        """
+        new_row = {'tick': tick}
+        # todo: (optimize) find more dynamic way to calculate total_delay
+        total_delay = 0
 
-    @property
-    def get_id(self):
-        return self.id
+        for i in range(4):
+            new_row['street ' + str(i + 1)] = self.streets[i]
+            current_column = 's' + str(i + 1) + ' delay'
+            new_row[current_column] = streets[cl.find(streets, self.streets[i])].get_current_delay()
+            total_delay += new_row[current_column]
 
-    @property
-    def get_streets(self):
-        return self.streets
+        # Get total delay
+        new_row['total delay'] = total_delay
 
-    @property
-    def get_schedule_position(self):
-        return self.cycle_position
-
-    @property
-    def get_schedule(self):
-        return self.schedule
+        # Add new row to the dataframe
+        self.intersection_delay_df.append(new_row, ignore_index=True)
 
     def set_always_on(self):
         # todo: add check/security so that always_on/always_off can't both be on
@@ -65,6 +76,7 @@ class Intersection:
         # light is off by default, so no need to change it
 
     def intersection_tick(self, streets):
+        # todo (cleanup): make function similar to functional programming
         # if this is the first tick
         if self.cycle_position == -1:
             self.cycle_position += 1
@@ -91,3 +103,23 @@ class Intersection:
 
     def __repr__(self):
         return str(self.id)
+
+    @property
+    def get_id(self):
+        return self.id
+
+    @property
+    def get_streets(self):
+        return self.streets
+
+    @property
+    def get_schedule_position(self):
+        return self.cycle_position
+
+    @property
+    def get_schedule(self):
+        return self.schedule
+
+    @property
+    def get_delay(self):
+        return self.intersection_delay_df
